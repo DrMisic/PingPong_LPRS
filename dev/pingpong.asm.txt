@@ -1,0 +1,45 @@
+.data
+3
+4
+0x100
+0x140
+0x200
+
+.text
+
+/*
+	Registri
+	R0 - tmp registar
+	R1 - x koordinata loptice
+	R2 - y koordinata loptice
+	R3 - y koordinata desnog objekta
+	R4 - y koordinata lijevog objekta
+	R5 - p_frame_sync
+	R6 - p_pb_dec
+	R7 - p_rgb_matrix
+*/
+
+
+
+default_settings:
+	sub R0,R0,R0
+	ld R3,R0 ;; R3 <- ucitava 3 kao default koordinatu objekta
+	ld R4,R0 ;; R3 <- ucitava 3 kao default koordinatu objekta
+	inc R0,R0 
+	ld R1,R0 ;; R1 <- ucitava x koordinatu loptice
+	ld R2,R0 ;; R2 <- ucitava y koordinatu loptice
+	inc R0,R0
+	ld R7, R0 ;;
+	inc R0,R0
+	ld R5, R0 ;;
+	inc R0, R0
+	ld R6,R0 ;;
+
+frame_sync_rising_edge:
+frame_sync_wait_0:
+	ld R0,R6
+	jmpnz frame_sync_wait_0 
+frame_sync_wait_1:
+	ld R0,R6
+	jmpz frame_sync_wait_1
+
