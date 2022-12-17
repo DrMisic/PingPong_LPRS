@@ -1,19 +1,30 @@
 .data
-3
-4
-0x100
+7		//adresa x pozicije lopte
+9		//kretanje lopte,vektor kretanja lopte
+11		//adresa x pozicije igraca 1 lijevi
+13		//adresa x pozicije igraca 2 desni
+0x100		//The stuff we don't know
 0x140
 0x200
+1		//vektor kretanja lopte (x,y) //npr: (1,0) lopta se krece za 1 korak u desno svakog frame-a
+0
+3		//ball x,y pos
+3		
+0		//player1 x,y pos (left player)
+0
+7		//player2 x,y pos (right player)
+0
+
 
 .text
 
 /*
 	Registri
 	R0 - tmp registar
-	R1 - x koordinata loptice
-	R2 - y koordinata loptice
-	R3 - y koordinata desnog objekta
-	R4 - y koordinata lijevog objekta
+	R1 - adresa loptice, (x pa y koordinata loptice)
+	R2 - tmp registar
+	R3 - tmp registar 
+	R4 - tmp registar 
 	R5 - p_frame_sync
 	R6 - p_pb_dec
 	R7 - p_rgb_matrix
@@ -22,19 +33,11 @@
 
 
 default_settings:
+	;; postavi adrese registara
 	sub R0,R0,R0
-	ld R3,R0 ;; R3 <- ucitava 3 kao default koordinatu objekta
-	ld R4,R0 ;; R3 <- ucitava 3 kao default koordinatu objekta
-	inc R0,R0 
-	ld R1,R0 ;; R1 <- ucitava x koordinatu loptice
-	ld R2,R0 ;; R2 <- ucitava y koordinatu loptice
-	inc R0,R0
-	ld R7, R0 ;;
-	inc R0,R0
-	ld R5, R0 ;;
-	inc R0, R0
-	ld R6,R0 ;;
+	ld R1,R0 ;; R1 <- adresa loptice
 
+;; frame sync
 frame_sync_rising_edge:
 frame_sync_wait_0:
 	ld R0,R6
@@ -42,4 +45,219 @@ frame_sync_wait_0:
 frame_sync_wait_1:
 	ld R0,R6
 	jmpz frame_sync_wait_1
+;; update
+
+
+
+begin:
+	;; Handle user input
+	
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;		COLLISION DETECTION		;;
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;; Ucitaj R1 i R2 i daj im vrijednost pozicije lopte sledeceg frame-a
+	;; throught this entire function we'll be addressing ball.x as the new ball position
+	sub R0,R0,R0
+	ld R1,R0
+	mov R2,R1
+	inc R2,R2
+	ld R1,R1
+	ld R2,R2
+	;; R1 <- x pozicja lopte,R2 <- y pozicija lopte,R0 = 0
+			
+	inc R0,R0
+	ld R3,R0
+	mov R4,R3
+	inc R4
+	ld R3,R3
+	ld R4,R4
+	;; R3 <- x vrijednost vektora , R4 <- y pozicija lopte,R0 = 0
+	
+	add R1,R1,R3
+	add R2,R2,R4
+	;;R1 <- nova x pozcija lopte (pozicija lopte sledeceg frame-a), R2 <- za y poziciju
+	;;R0 = 1
+	
+	check_left_player_collision:
+	inc R0,R0			;;R0 = 2
+	ld R3,R0
+	mov R4,R3
+	inc R4
+	ld R3,R3
+	ld R4,R4
+	;; R3 <- x pozicja lijevog igraca, R4 <- y pozicja lijevog igraca
+	
+	;; check the x axis
+	sub R3,R3,R1
+	jmpnz check_left_player_collision_end  		;; x pozicija lopte je veca od x pozicije lijevog igraca 
+	
+	;; R3 will be used as a temp register
+	sub R3,R4,R2
+	jmps LEFT_PLAYER_LOST
+	
+	inc R0,R0		;; R0 = 3
+	add R4,R4,R0	;; R4 += 3;
+	sub R3,R4,R2
+	jmps LEFT_PLAYER_LOST
+	dec R0,R0		;; R0 = 2
+	
+	;;SINCE THE BALL HASN'T hit the wall we must change the ball movement vector
+	;;the code below sets the ball movement vector to the required value and the jumps will have a long name to avoid collisions
+	;; R3 = R4-R2 = left_player.y+3 - ball.y
+	mov R3,R3
+	jmpnz check_left_player_collision_BallMoveVector_down_right_jump
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		st R0,R3		;;ball_movement_vector.x = 1
+		inc R3,R0
+		st R0,R3		;;ball_movement_vector.y = 1
+		jmp check_left_player_collision_BallMoveVector_set
+	check_left_player_collision_BallMoveVector_down_right_jump:
+	;;R0 = 2, R4 = left_player.y+3
+	dec R3,R3	;; R3 = R4-R2 = left_player.y+3 - ball.y -1
+	jmpnz check_left_player_collision_BallMoveVector_right_jump
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		st R0,R3		;;ball_movement_vector.x = 1
+		inc R3
+		sub R0,R0,R0	;;R0 = 0
+		st R0,R3		;;ball_movement_vector.y = 0
+		jmp check_left_player_collision_BallMoveVector_set
+	check_left_player_collision_BallMoveVector_right_jump:
+	;; Else we shoot it up right
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		st R0,R3		;;ball_movement_vector.x = 1
+		inc R3
+		dec R0,R0		;;R0 = 0
+		dec R0,R0		;;R0 = -1
+		st R0,R3		;;ball_movement_vector.y = -1	
+	check_left_player_collision_BallMoveVector_set:
+		;;The ball movement vector is now set accordingly
+		
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		check_left_player_collision_end:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
+	
+	
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		check_right_player_collision:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	sub R0,R0,R0
+	inc R0,R0,R0
+	inc R0,R0,R0
+	inc R0,R0			;;R0 = 3
+	ld R3,R0			;;R3 = &(right_player_pos)
+	mov R4,R3			
+	inc R4
+	ld R3,R3			
+	ld R4,R4			
+	;; R3 <- x pos of the right player, R4 <- y pos of the right player
+	
+	;; check the x axis
+	sub R3,R3,R1
+	jmpnz check_right_player_collision_end  		;; x pozicija lopte je veca od x pozicije desnog 
+	
+	;; R3 will be used as a temp register
+	sub R3,R4,R2
+	jmps RIGHT_PLAYER_LOST
+	
+	inc R0,R0		;; R0 = 3
+	add R4,R4,R0	;; R4 += 3;
+	sub R3,R4,R2	;; R3 = right_player_pos.y+3 - ball.y
+	jmps RIGHT_PLAYER_LOST
+	dec R0,R0		;; R0 = 2
+	
+	
+	;;SINCE THE BALL HASN'T hit the wall we must change the ball movement vector
+	;;the code below sets the ball movement vector to the required value and the jumps will have a long name to avoid collisions
+	;; R3 = R4-R2 = left_player.y+3 - ball.y
+	mov R3,R3
+	jmpnz check_right_player_collision_BallMoveVector_down_right_jump
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		inc R3,R0		;;R3=&(ball_movement_vector.y)
+		st R0,R3		;;ball_movement_vector.y = 1
+		dec R3,R3		;;R3 = &(ball_movement_vector) = 9
+		dec R0,R0		;;R0 = 0
+		dec R0,R0 		;;R0 = -1
+		st R0,R3		;;ball_movement_vector.x = -1
+		jmp check_right_player_collision_BallMoveVector_set
+	check_left_right_collision_BallMoveVector_down_right_jump:
+	;;R0 = 2, R4 = left_player.y+3
+	dec R3,R3	;; R3 = R4-R2 = left_player.y+3 - ball.y -1
+	jmpnz check_right_player_collision_BallMoveVector_right_jump
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		inc R3,R0		;;R3=&(ball_movement_vector.y)
+		dec R0,R0		;;R0 = 0
+		st R0,R3		;;ball_movement_vector.y = 0
+		dec R3,R3		;;R3 = &(ball_movement_vector) = 9
+		dec R0,R0 		;;R0 = -1
+		st R0,R3		;;ball_movement_vector.x = -1
+		jmp check_right_player_collision_BallMoveVector_set
+	check_right_player_collision_BallMoveVector_right_jump:
+	;; Else we shoot it up right
+		dec R0,R0		;;R0 = 1
+		ld R3,R0		;;R3 = &(ball_movement_vector) = 9
+		inc R3,R0		;;R3=&(ball_movement_vector.y)
+		dec R0,R0		;;R0 = 0
+		dec R0,R0		;;R0 = -1
+		st R0,R3		;;ball_movement_vector.y = -1
+		dec R3,R3		;;R3 = &(ball_movement_vector) = 9
+		st R0,R3		;;ball_movement_vector.x = -1
+	check_right_player_collision_BallMoveVector_set:
+		;;The ball movement vector is now set accordingly
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		check_right_player_collision_end:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+			update_ball_position
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	sub R0,R0,R0
+	inc R0,R0			;;R0 = 1
+	ld R1,R0
+	inc R2,R1
+	ld R1,R1
+	ld R2,R2
+	;;R1 = ball.x, R2 = ball.y
+	
+	inc R0,R0			;;R0 = 2
+	ld R3,R0
+	inc R4,R3
+	ld R3,R3	
+	ld R4,R4
+	;;R3 = ball_movement_vector.x, R4 = ball_movement_vector.y
+	
+	;;change the positions
+	add R1,R1,R3
+	add R2,R2,R4
+	;;R1 = new ball.x, R2 = new ball.y
+	
+	dec R0,R0			;;R0 = 1
+	ld R3,R0			;;R3 = &ball
+	st R1,R3			;;ball.x = new ball.x
+	inc R3,R3
+	st R2,R3			;;ball.y = new ball.y
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;		ball position has been updated accordingly		;;
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; loop indefinetely
+jmp frame_sync_rising_edge
+
+
+
+LEFT_PLAYER_LOST:
+		;; EXIT THE GAME SINCE THE PLAYER LOST
+RIGHT_PLAYER_LOST:
+		;; End the game
+
 
