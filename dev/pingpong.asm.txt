@@ -1,41 +1,31 @@
-  ;;TODO:
-;;podaci ostaju isti kao i kod Milosa samo posle 0x200 smo ubacili vektor kretanja loptice (memorijska lokacija 6)
-;;1. frame_sync => copy paste iz Milosevog fajla
-;;2. draw everything => po Misicevom nacinu
-;;3. count frames begin => copy paste iz milosevog fajla
-;;4. collision detection => Dusko prepravlja svoj kod
-;;5. movement => dio collision detection-a
-;;6. loop ... da samo loop
-;;7. profit
-
 
 .data
-8			;; pokazuje na lopticu (x poz)
+8			//pokazuje na lopticu (x poz)
 0			
 75
 0x100
 0x140
-0x200	;;0x200 je y movement vector od igraca 1 a 0x201 je od 2 igraca
-;;^^^^^^^^^^^CONST ABOVE^^^^^^^^^^^
+0x200	//0x200 je y movement vector od igraca 1 a 0x201 je od 2 igraca
+//^^^^^^^^^^^CONST ABOVE^^^^^^^^^^^
 
-;;The variables we can modify
-1			;; pocetna vrijednost vektora pomjeranja lopte (x y) NPR:(1,0) ide samo pravac desno dok (1,1) ide desno dole
-0					;; Address: 0x6
-3			;; pocetne koorditate loptice (x y)  Address: 0x8
+//The variables we can modify
+1			//	pocetna vrijednost vektora pomjeranja lopte (x y) NPR:(1,0) ide samo pravac desno dok (1,1) ide desno dole
+0					// Address: 0x6
+3			// pocetne koorditate loptice (x y)  Address: 0x8
 3 
-0			;; koordinata lijevog objekta (x y)  Address: 0xa = 10
+0			// koordinata lijevog objekta (x y)  Address: 0xa = 10
 3 
 0
 4
 0
 5
 7
-3 			;; koordinata desnog objekta (x y)	 Address: 0x11 = 16
+3 			// koordinata desnog objekta (x y)	 Address: 0x11 = 16
 7
 4
 7
 5
--1			;; kraj
+-1			// kraj
 -1
 
 .text
@@ -377,19 +367,115 @@ cout_frames_end:
 	;;	TODO : HANDLE USER INPUT!!!!
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+	;; 	R0 = tmp register
+	;;	R1 = left_player.y
+	;;	R2 = right_player.y
+	;;	R5 = pb_dec
+	;;	R3 = left_player_y_change
+	;;	R4 = right_player_y_change
 
+	;;Load in the values
+	sub R0,R0,R0
+	inc R0,R0
+	shl R0,R0		
+	shl R0,R0
+	inc R0,R0		;;R0 = 5
+	ld R5,R0		;;R5 = &pb_dec = 0x200 = &left_player.y change
+	;;NOTE: The value of R5 was already saved inside the register at the start of the programm
+	dec R0,R0		
+	shl R0,R0		
+	shl R0,R0		
+	inc R0,R0		;;R0 = 17 = &right_player.y
+	ld R2,R0		;;R2 = right_player.y
+	shr R0,R0		;;R0 = 8	
+	inc R0,R0		
+	inc R0,R0
+	inc R0,R0		;;R0 = 11 = &left_player.y
+	ld R1,R0		;;R1 = left_player.y
 
-
-
+	shr R0,R0		;;R0 = 5
+	
+	;;NOTE: R1 = left_player.y  R2 = right_player.y    R0 = 5    R5 = 0x200 = &left_player.y change
+	ld R3,R5
+	inc R5,R5
+	ld R4,R5
+	dec R5,R5
+	;;R3 = left_player.y change   R4 = right_player.y change
+	
+	add R1,R1,R3
+	sub R0,R1,R0
+	jmps skip_return_left_player_to_upper_bounds
+		dec R1,R1	;;R1 is now <= 4
+	skip_return_left_player_to_upper_bounds:
+	
+	mov R1,R1
+	jmpns skip_return_left_player_to_lower_bounds
+		sub R1,R1,R1
+	skip_return_left_player_to_lower_bounds:
+	
+	
+	
+	sub R0,R0,R0
+	inc R0,R0
+	shl R0,R0
+	shl R0,R0
+	inc R0,R0		;; R0 = 5
+	
+	add R2,R2,R4
+	sub R0,R2,R0	
+	jmps skip_return_right_player_to_upper_bounds
+		dec R2,R2	;;R2 is now <= 4
+	skip_return_right_player_to_upper_bounds:
+	
+	mov R2,R2
+	jmpns skip_return_right_player_to_lower_bounds
+		sub R2,R2,R2
+	skip_return_right_player_to_lower_bounds:
+	
+	
+	;;Now we have to write in the new positions of the players
+	;;	R1 = new left_player.y		R2 = new right_player.y
+	sub R0,R0,R0
+	ld R0,R0
+	inc R0,R0
+	inc R0,R0		;;R0 = 10 = &left_player.x
+	inc R0,R0		;;R0 = 11 = &left_player.y
+	st R1,R0		
+	;;Repeat this 2 more times since the length of the players is 3
+	inc R0,R0
+	inc R0,R0
+	inc R1,R1
+	st R1,R0
+	inc R0,R0
+	inc R0,R0
+	inc R1,R1
+	st R1,R0
+	;; The position of the left player is now stored
+	
+	;;Now do the same for the right player
+	inc R0,R0
+	inc R0,R0		;;R0 = 17 = &right_player.y
+	st R2,R0
+	;;repeat 2 times
+	inc R0,R0
+	inc R0,R0
+	inc R2,R2
+	st R2,R0
+	inc R0,R0
+	inc R0,R0
+	inc R2,R2
+	st R2,R0
+	;; The position of the right player is now stored
+	
+	
 ;; loop indefinetely
 jmp frame_sync_rising_edge
 
 
-
-
-
 LEFT_PLAYER_LOST:
-		;; EXIT THE GAME SINCE THE PLAYER LOST
 RIGHT_PLAYER_LOST:
-		;; End the game
+	;; EXIT THE GAME SINCE THE PLAYER LOST
+	;; End the game
+	sub R0,R0,R0
+		
 		
