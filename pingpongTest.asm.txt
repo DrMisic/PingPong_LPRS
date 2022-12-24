@@ -1,0 +1,421 @@
+
+.data
+8			
+0			
+75
+0x100
+0x140
+0x200	
+1			
+0					
+3			
+3 
+0			
+3 
+0
+4
+0
+5
+7
+3 			
+7
+4
+7
+5
+-1			
+-1
+
+.text
+
+/* 
+	Registri
+	R0 - tmp registar
+	R1 - player_1
+	R2 - player_2
+	R3 - color
+	R4 - p_object_and_ball
+	R5 - p_frame_sync
+	R6 - p_pb_dec
+	R7 - p_rgb_matrix
+*/
+
+
+
+default_settings:
+	sub R0,R0,R0
+	inc R0,R0 
+	inc R0,R0
+	inc R0,R0
+	ld R7, R0 		;; R7 = *p_rgb_matrix
+	inc R0,R0
+	ld R5, R0 		;; R5 = *p_frame_sync
+	inc R0, R0
+	ld R6,R0 		;; R6 = 0x200 = y pozicija pomjeranja levog (1 igraca) (0x201 ke y pozicija pomjeranja 2 (desnog) igraca)
+
+frame_sync_rising_edge:
+frame_sync_wait_0:
+	ld R0,R5
+	jmpnz frame_sync_wait_0 
+frame_sync_wait_1:
+	ld R0,R5
+	jmpz frame_sync_wait_1
+
+draw_object_begin:
+	sub R0,R0,R0
+	ld R4,R0		;; R4 = &(ball.x)
+	sub R3,R3,R3
+	inc R3,R3
+draw_object_loop:
+	ld R1, R4 		;; R1 = *(ball.x)
+	jmps draw_object_end
+	inc R4,R4 		;; pomjeri na y
+	ld R2, R4		;; R2 = *(ball.y)
+	inc R4,R4		;; R4 = &(left_player.x)
+	shl R2,R2
+	shl R2,R2
+	shl R2,R2		
+	add R2,R2,R1	;; R2 = R2*8 + R1 = ball.y*8 + ball.x ;
+	add R2,R2,R7	;; R2 = &(lampice) //R7 = &(RGB_Matrix)
+	st R3,R2		;; upisi u matricu 
+	jmp draw_object_loop
+draw_object_end:
+
+count_frames_begin:
+	sub R0,R0,R0
+	inc R0,R0
+	ld R1, R0 		;; R1 <- frame_cnt
+	inc R0,R0 		;;
+	ld R2, R0 		;; R2 <- frames_per_heartbeat
+	dec R0,R0
+	inc R1,R1 		;; frame_cnt++
+	sub R2,R2,R1 	;; frame_cnt == frames_per_heartbeat
+	jmpz count_frames_heartbeat
+	st R1, R0 		;; R1 -> frame_cnt
+	jmp frame_sync_rising_edge
+
+count_frames_heartbeat:
+	sub R1,R1,R1
+	st R1,R0
+cout_frames_end:
+/*
+ball_collision:
+	
+ball_collision_left_object:
+	sub R0,R0,R0
+	ld R1,R0;; x koordinata lopte
+	inc R0,R0 ;;1
+	ld R2,R1
+	sub R0,R2,R0
+	jmpz check_1_lo
+	jmp ball_collision_right_object
+
+check_1_lo:
+	inc R1,R1;; y koord lopte
+	ld R0,R1 ;; sacuvao y koordinatu lopte
+	inc R1,R1 ;; x koord objekta
+	inc R1,R1 ;; y koord objekta
+	ld R2,R1 ;; sacuvao gornju koordinatu lopte
+	sub R2,R2,R0 
+	jmpz change_ball_movment_vector_1l
+	inc R1,R1 ;;
+	inc R1,R1 ;; 
+	ld R2,R1 ;; sacuvao srednju koordinatu lopte
+	sub R2,R2,R0
+	jmpz change_ball_movment_vector_2l
+	inc R1,R1 ;;
+	inc R1,R1 ;;
+	ld R2,R1 
+	sub R2,R2,R0
+	jmpz change_ball_movment_vector_3l
+	jmp gameover
+
+change_ball_movment_vector_1l:	
+	sub R0,R0,R0
+	ld R1,R0
+	dec R1,R1 ;; y koordinata
+	dec R0,R0
+	st R0,R1 ;; -1
+	dec R1,R1 ;; x koordinata
+	inc R0,R0
+	inc R0,R0
+	st R0,R1
+	jmp update_ball_position_x
+	
+change_ball_movment_vector_2l:
+	sub R0,R0,R0
+	ld R1,R0
+	dec R1,R1 ;; y koordinata
+	st R0,R1 ;; 0
+	dec R1,R1 ;; x koordinata
+	inc R0,R0
+	inc R0,R0
+	st R0,R1
+	jmp update_ball_position_x
+
+	
+change_ball_movment_vector_3l:
+	sub R0,R0,R0
+	ld R1,R0
+	dec R1,R1 ;; y koordinata
+	inc R0,R0
+	st R0,R1 ;; -1
+	dec R1,R1 ;; x koordinata
+	inc R0,R0
+	inc R0,R0
+	st R0,R1
+	jmp update_ball_position_x
+
+ball_collision_right_object:
+
+*/
+
+update_ball_position_x:
+	sub R0,R0,R0 ;; krećemo od nule
+	ld R1,R0 ;; skacemo na memorijsku lokaciju x koordinate lopte
+	ld R0,R1 ;; R0 <-  x koordinata lopte
+	dec R1,R1 ;; skacemo na movment vektor y ose
+	dec R1,R1 ;; movment vektor x
+	ld R2,R1
+	add R2,R2,R0
+	inc R1,R1
+	inc R1,R1
+	st R2,R1
+
+update_ball_position_y:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1 ;; y koordinata lopte
+	ld R0,R1 ;; R0 <- y koordinata lopte
+	dec R1,R1 ;; x koordinata lopte
+	dec R1,R1 ;; y  koordinata movment 
+	ld R2,R1
+	add R2,R2,R0
+	inc R1,R1
+	inc R1,R1
+	st R2,R1
+
+
+object_collision_player_1:
+	sub R0,R0,R0
+	ld R1,R0 ;; 
+	inc R1,R1 ;; y koordinata lopte
+	inc R1,R1 ;; x koordinata igraca
+	inc R1,R1 ;; y koordinata igraca
+	ld R0,R1
+	sub R2,R2,R2
+	sub R0,R2,R0
+	jmpz correction_1_player_1
+	inc R1,R1;; x koord
+	inc R1,R1;; y koord
+	inc R1,R1;; x koord
+	inc R1,R1;; y koord
+	ld R0,R1
+	inc R2,R2 ;; 1
+	shl R2,R2 ;; 2
+	shl R2,R2 ;; 4
+	shl R2,R2 ;; 8
+	dec R2,R2 ;; 7
+	sub R0,R2,R0
+	jmpz correction_2_player_1
+	jmp move_player_1
+
+correction_1_player_1:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1; y
+	inc R1,R1; x
+	inc R1,R1; y
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	jmp move_player_1
+
+correction_2_player_1:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1; y
+	inc R1,R1; x
+	inc R1,R1; y
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	jmp move_player_1	
+
+
+
+
+move_player_1:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1
+	inc R1,R1;; x koordinata playera
+	inc R1,R1;; y koordinata playera
+	ld R0,R1 ;; R0 <- y koord
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+	inc R1,R1
+	inc R1,R1
+	ld R0,R1
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+	inc R1,R1
+	inc R1,R1
+	ld R0,R1
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+
+object_collision_player_2:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1 ;; y kord lopta
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+
+	;; above is ball and player1
+	
+	inc R1,R1 ;; x koord player2
+	inc R1,R1 ;; y koord player2
+	ld R0,R1
+	sub R2,R2,R2
+	sub R0,R2,R0
+	jmpz correction_1_player_2
+	
+	inc R1,R1 ;; x koord middle player2
+	inc R1,R1 ;; y koord middle player2
+	inc R1,R1 ;; x koord end player2
+	inc R1,R1 ;; y koord end player2
+	ld R0,R1
+	inc R2,R2;;1
+	shl R2,R2;;2
+	shl R2,R2;;4
+	shl R2,R2;;8
+ 	dec R2,R2;;7
+	sub R0,R2,R0
+	jmpz correction_2_player_2
+	jmp move_player_2
+
+correction_1_player_2:
+	sub R0,R0,R0 
+	ld R1,R0 
+	inc R1,R1 ;; y kord lopta
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+
+	inc R1,R1 ;; x koord player2
+	inc R1,R1 ;; y koord player2
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	inc R0,R0
+	st R0,R1
+	jmp move_player_2
+
+correction_2_player_2:
+	sub R0,R0,R0 
+	ld R1,R0 
+	inc R1,R1 ;; y kord lopta
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+
+	inc R1,R1 ;; x koord player2
+	inc R1,R1 ;; y koord player2
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	inc R1,R1 ;x
+	inc R1,R1 ;y
+	ld R0,R1
+	dec R0,R0
+	st R0,R1
+	jmp move_player_2
+	
+	
+
+move_player_2:
+	sub R0,R0,R0
+	ld R1,R0
+	inc R1,R1 ;; y kord lopta
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+	inc R1,R1 ;; x kord player1
+	inc R1,R1 ;; y kord player1
+
+	inc R1,R1 ;; x koord player2
+	inc R1,R1 ;; y koord player2
+	
+	inc R6,R6;;
+	ld R0,R1
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+	inc R1,R1 ;; x koord
+	inc R1,R1 ;; y koord
+	ld R0,R1
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+	inc R1,R1 ;; x koord
+	inc R1,R1 ;; y koord
+	ld R0,R1
+	ld R2,R6
+	add R0,R0,R2
+	st R0,R1
+	dec R6,R6
+
+jmp frame_sync_rising_edge
+
+gameover:
+	sub R0,R0,R0
+
+
+
