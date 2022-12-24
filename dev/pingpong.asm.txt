@@ -1,48 +1,34 @@
-
 .data
 8			//pokazuje na lopticu (x poz)
-0			
+0			//
 75
-0x100
-0x140
-0x200	//0x200 je y movement vector od igraca 1 a 0x201 je od 2 igraca
+0x100	// DEC:256 = p_rgb_matrix
+0x140	// DEC:320 = p_frame_sync
+0x200	// DEC:512 = p_pb_dec
 //^^^^^^^^^^^CONST ABOVE^^^^^^^^^^^
 
 //The variables we can modify
-1			//	pocetna vrijednost vektora pomjeranja lopte (x y) NPR:(1,0) ide samo pravac desno dok (1,1) ide desno dole
-0					// Address: 0x6
-3			// pocetne koorditate loptice (x y)  Address: 0x8
-3 
-0			// koordinata lijevog objekta (x y)  Address: 0xa = 10
-3 
-0
-4
-0
-5
-7
-3 			// koordinata desnog objekta (x y)	 Address: 0x11 = 16
-7
-4
-7
-5
--1			// kraj
--1
+1,0			//	pocetna vrijednost vektora pomjeranja lopte (x y) NPR:(1,0) ide samo pravac desno dok (1,1) ide desno dole
+					//Adress: 0x6
+3,3			// pocetne koorditate loptice (x y)  Address: 0x8 
+0,3			// koordinata lijevog objekta (x y)  Address: 0xa = 10 
+7,3 		// koordinata desnog objekta (x y)	 Address: 0xc = 12
+-1,-1		// kraj
 
-.text
 
-/* 
-	Registri
-	R0 - tmp registar
-	R1 - player_1
-	R2 - player_2
-	R3 - color
-	R4 - p_object_and_ball
-	R5 - p_frame_sync
-	R6 - p_pb_dec
-	R7 - p_rgb_matrix
+/*
+	Register setup:
+	R0 = tmp reg
+	R1 = tmp reg
+	R2 = tmp reg
+	R3 = tmp reg
+	R4 = tmp reg
+	R5 = p_frame_sync
+	R6 = p_pb_dec
+	R7 = p_rgb_matrix
 */
 
-
+.text
 
 default_settings:
 	sub R0,R0,R0
@@ -54,7 +40,6 @@ default_settings:
 	ld R5, R0 		;; R5 = *p_frame_sync
 	inc R0, R0
 	ld R6,R0 		;; R6 = 0x200 = y pozicija pomjeranja levog (1 igraca) (0x201 ke y pozicija pomjeranja 2 (desnog) igraca)
-	inc R3,R3 		;; Boja = RED
 
 frame_sync_rising_edge:
 frame_sync_wait_0:
@@ -64,27 +49,43 @@ frame_sync_wait_1:
 	ld R0,R6
 	jmpz frame_sync_wait_1
 
-draw_object_begin:
-	shl R3,R3
-	sub R0,R0,R0
+draw_begin:
+
+draw_ball:
+	sub R3,R3,R3
+	inc R3,R3 		;; Boja = RED
+	sub R0,R0,R0	;; R0 = 0
 	ld R4,R0		;; R4 = &(ball.x)
-draw_object_loop:
-	ld R1, R4 		;; R1 = *(ball.x)
-	jmps draw_object_end
-	inc R4,R4 		;; pomjeri na y
-	ld R2, R4		;; R2 = *(ball.y)
+	ld R1, R4 		;; R1 = ball.x
+	inc R4,R4 		
+	ld R2, R4		;; R2 = ball.y
+	shl R2,R2
+	shl R2,R2
+	shl R2,R2
+	add R2,R1,R2
+	add R2,R1,R7	;;R2 = (R2*8) + x + 256
+	st R3,R2		;;store color in "256 + (y*8) +x"
+	
+	
+	ld R0,R0		;;R0 = 8
+draw_players:
 	inc R4,R4		;; R4 = &(left_player.x)
+	ld R1,R4
+	jmps draw_end
+	inc R4,R4		;; R4 = &(left_player.y)
+	ld R2,R4		;; R1 = left_player.x  R2 = left_player.y
 	shl R2,R2
 	shl R2,R2
 	shl R2,R2		
-	add R2,R2,R1	;; R2 = R2*8 + R1 = ball.y*8 + ball.x ;
-	add R2,R2,R7	;; R2 = &(lampice) //R7 = &(RGB_Matrix)
-	st R3,R2		;; upisi u matricu 
-	;;shl R3,R3		;; Promjena boje
-	jmpnz draw_object_loop
-	;;inc R3,R3
-	jmp draw_object_loop
-draw_object_end:
+	add R2,R2,R1	
+	add R2,R2,R7	;; R2 = (R2*8) + x + 256 (draw 1st tile)
+	st R3,R2		
+	add R2,R2,R0	;;draw 2nd tile
+	st R3,R2		
+	add R2,R2,R0	;;draw 3rd tile
+	st R3,R2		
+	jmp draw_players
+draw_end:
 
 count_frames_begin:
 	sub R0,R0,R0
@@ -110,20 +111,19 @@ cout_frames_end:
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;; Load R1 and R2 and set them as the position of the ball in the next frames
 	;; throught this entire function we'll be addressing ball.x as the new ball position
-	sub R0,R0,R0	;;R0 = 0 = &(ball.x)
-	ld R3,R0
+	sub R0,R0,R0	;; R0 = 0 
+	ld R3,R0		;; R3 = &(ball.x)
 	mov R4,R3
 	inc R4,R4
 	ld R3,R3
-	ld R4,R4		;;R3= *(ball_movement_vector.x),R4= *(ball_movement_vector.y)
+	ld R4,R4		;; R3 = ball.x, R4 = ball.y
 	
 	ld R1,R0		
 	dec R1,R1
-	dec R1,R1		;;R1 = &(ball_movement_vector.x)
 	mov R2,R1
-	inc R2,R2
+	dec R1,R1		;; R1 = &(ball_movement_vector.x)
 	ld R1,R1		
-	ld R2,R2		;;R1= *(ball_movement_vector.x),R2= *(ball_movement_vector.y)
+	ld R2,R2		;; R1 = ball_movement_vector.x, R2 = ball_movement_vector.y
 			
 	add R1,R1,R3
 	add R2,R2,R4
@@ -136,10 +136,9 @@ cout_frames_end:
 	ld R0,R0			;;R0 = &(ball.x)
 	inc R0,R0			
 	inc R0,R0			;;R0 = &(left_player.x)
-	ld R3,R0			;;R3 = *(left_player.x)
+	ld R3,R0			;;R3 = left_player.x
 	inc R0,R0
-	ld R4,R0			;;R4 = *(left_player.y)
-	;; R3 <- x pozicja lijevog igraca, R4 <- y pozicja lijevog igraca
+	ld R4,R0			;;R4 = left_player.y
 	
 	;; check the x axis
 	sub R3,R3,R1
@@ -157,7 +156,8 @@ cout_frames_end:
 	;; R0 = 11 = &(left_player.y)
 	
 	;;SINCE THE BALL HASN'T hit the wall we must change the ball movement vector
-	;;the code below sets the ball movement vector to the required value and the jumps will have a long name to avoid collisions
+	;;the code below sets the ball movement vector to the required value 
+	;;Note: The jump labels will have a long name to avoid collisions
 	
 	;;Since
 	;; R3 = R4-R2 = left_player.y+3 - ball.y
@@ -173,7 +173,7 @@ cout_frames_end:
 		st R0,R3		;; ball_movement_vector.y = 1
 		dec R0,R0		;; R0 = &(ball_movement_vector.x) = 6
 		st R0,R3		;; ball_movement_vector.x = 1
-		jmp check_left_player_collision_end			;;jump to the end of the section
+		jmp check_collision_end			;;jump to the end of the section
 	check_left_player_collision_BallMoveVector_down_right_jump:
 	
 	;;NOTE: Register status:
@@ -189,7 +189,7 @@ cout_frames_end:
 		dec R0,R0		;; R0 = &(ball_movement_vector.x) = 6
 		inc R3,R3		;; R3 = 1
 		st R0,R3		;; ball_movement_vector.x = 1
-		jmp check_left_player_collision_end
+		jmp check_collision_end
 	check_left_player_collision_BallMoveVector_right_jump:
 	
 	;; Else, we hit the first tile. Then the ball_movement_vector = (1,-1)
@@ -203,7 +203,7 @@ cout_frames_end:
 		inc R3,R3
 		inc R3,R3		;; R3 = 1
 		st R0,R3		;; ball_movement_vector.x = 1
-	
+		jmp check_collision_end
 	
 	;;The ball movement vector is now set accordingly
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -217,9 +217,9 @@ cout_frames_end:
 	sub R0,R0,R0
 	inc R0,R0
 	shl R0,R0
+	inc R0,R0
 	shl R0,R0
-	shl R0,R0
-	shl R0,R0		;; R0 = 16 = &(right_player_pos.x)
+	shl R0,R0		;; R0 = 12 = &(right_player_pos.x)
 	ld R3,R0
 	inc R0,R0
 	ld R4,R0		
@@ -258,7 +258,7 @@ cout_frames_end:
 		dec R3,R3
 		dec R3,R3
 		st R0,R3		;; ball_movement_vector.x = -1
-		jmp check_right_player_collision_end
+		jmp check_collision_end
 	check_right_player_collision_BallMoveVector_down_right_jump:
 	
 	
@@ -274,7 +274,7 @@ cout_frames_end:
 		dec R0,R0		;; R0 = &(ball_movement_vector.x) = 6
 		dec R3,R3
 		st R0,R3		;; ball_movement_vector.x = -1
-		jmp check_right_player_collision_end
+		jmp check_collision_end
 	check_right_player_collision_BallMoveVector_right_jump:
 	
 	
@@ -287,6 +287,7 @@ cout_frames_end:
 		st R0,R3		;; ball_movement_vector.y = -1
 		dec R0,R0		;; R0 = &(ball_movement_vector.x) = 6
 		st R0,R3		;; ball_movement_vector.x = -1
+		jmp check_collision_end
 	
 	;;The ball movement vector is now set accordingly
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -328,33 +329,37 @@ cout_frames_end:
 		check_wall_collision_end:
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
 	
+check_collision_end:
+	
 
 
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 			update_ball_position:
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	;;NOTE: new ball.x = R1 and new ball.y = R2
+	;;NOTE: new ball.x = R1 and new ball.y = R2 (could be out of bounds so we read from the RAM where we wrote the changes)
 	
 	;; Setup
 	sub R0,R0,R0
-	ld R0,R0			
-	dec R0,R0
-	ld R1,R0
-	inc R0,R0
-	ld R2,R0
-	inc R0,R0
+	ld R0,R0		;;R0 = 8 = &(ball.x)
 	ld R3,R0
-	inc R0,R0		;;R0 = &(ball.y)
+	inc R0,R0
 	ld R4,R0
-	;; R1 = ball_movement_vector.x and R2 = ball_movement_vector.y
-	;; R3 = ball.x and R4 = ball.y
+	dec R0,R0		;;R3 = ball.x   R4 = ball.y
+	dec R0,R0		;; R0 = 7
+	ld R2,R0
+	dec R0,R0
+	ld R1,R0		;;R1 = ball_movement_vector.x  R2 = ball_movement_vector.y
 
+	;;Change positions
 	add R3,R3,R1
 	add R4,R4,R2
-	;;NOTE: R0 = &(ball.y)
-	st R4,R0
-	dec R0,R0
+
+	;;Store it
+	sub R0,R0,R0
+	ld R0,R0
 	st R3,R0
+	inc R0,R0
+	st R4,R0
 	
 	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	;;		ball position has been updated accordingly		;;
@@ -370,107 +375,98 @@ cout_frames_end:
 	;; 	R0 = tmp register
 	;;	R1 = left_player.y
 	;;	R2 = right_player.y
-	;;	R5 = pb_dec
 	;;	R3 = left_player_y_change
 	;;	R4 = right_player_y_change
+	;;	R6 = pb_dec = const
 
+handle_input:
 	;;Load in the values
-	sub R0,R0,R0
-	inc R0,R0
-	shl R0,R0		
-	shl R0,R0
-	inc R0,R0		;;R0 = 5
-	ld R5,R0		;;R5 = &pb_dec = 0x200 = &left_player.y change
-	;;NOTE: The value of R5 was already saved inside the register at the start of the programm
-	dec R0,R0		
-	shl R0,R0		
-	shl R0,R0		
-	inc R0,R0		;;R0 = 17 = &right_player.y
-	ld R2,R0		;;R2 = right_player.y
-	shr R0,R0		;;R0 = 8	
-	inc R0,R0		
-	inc R0,R0
-	inc R0,R0		;;R0 = 11 = &left_player.y
-	ld R1,R0		;;R1 = left_player.y
+	;;NOTE: The value of R6 was already saved inside the register at the start of the programm
 
-	shr R0,R0		;;R0 = 5
-	
-	;;NOTE: R1 = left_player.y  R2 = right_player.y    R0 = 5    R5 = 0x200 = &left_player.y change
-	ld R3,R5
-	inc R5,R5
-	ld R4,R5
-	dec R5,R5
-	;;R3 = left_player.y change   R4 = right_player.y change
-	
-	add R1,R1,R3
-	sub R0,R1,R0
-	jmps skip_return_left_player_to_upper_bounds
-		dec R1,R1	;;R1 is now <= 4
-	skip_return_left_player_to_upper_bounds:
-	
-	mov R1,R1
-	jmpns skip_return_left_player_to_lower_bounds
-		sub R1,R1,R1
-	skip_return_left_player_to_lower_bounds:
-	
-	
-	
-	sub R0,R0,R0
-	inc R0,R0
-	shl R0,R0
-	shl R0,R0
-	inc R0,R0		;; R0 = 5
-	
-	add R2,R2,R4
-	sub R0,R2,R0	
-	jmps skip_return_right_player_to_upper_bounds
-		dec R2,R2	;;R2 is now <= 4
-	skip_return_right_player_to_upper_bounds:
-	
-	mov R2,R2
-	jmpns skip_return_right_player_to_lower_bounds
-		sub R2,R2,R2
-	skip_return_right_player_to_lower_bounds:
-	
-	
-	;;Now we have to write in the new positions of the players
-	;;	R1 = new left_player.y		R2 = new right_player.y
+handle_left_player_input:
 	sub R0,R0,R0
 	ld R0,R0
 	inc R0,R0
-	inc R0,R0		;;R0 = 10 = &left_player.x
-	inc R0,R0		;;R0 = 11 = &left_player.y
+	inc R0,R0		
+	inc R0,R0		;;R0 = &left_player.y = 9
+	ld R1,R0		;;R1 = left_player.y
+	inc R0,R0
+	inc R0,R0
+	ld R2,R0		;;R2 = right_player.y
+
+	
+	ld R3,R6		
+	jmpz skip_iPB_UP_handle
+		;;Move right player up
+		dec R2,R2
+		jmpns skip_iPB_UP_handle_position_reset
+			inc R2,R2
+		skip_iPB_UP_handle_position_reset:
+		jmp skip_iPB_RIGHT_handle					;;If both buttons are pressed we should only handle one input at a time
+	skip_iPB_UP_handle:
+	
+	inc R6,R6
+	ld R3,R6
+	jmpz skip_iPB_RIGHT_handle
+		;;Move right player down
+		sub R0,R0,R0
+		ld R0,R0		;;R0 = 8
+		dec R0,R0		;;R0 = 7
+		inc R2,R2		;;
+		sub R0,R0,R2
+		jmpns skip_iPB_RIGHT_handle_position_reset
+			dec R2,R2
+		skip_iPB_RIGHT_handle_position_reset:
+	skip_iPB_RIGHT_handle:
+	
+	inc R6,R6
+	ld R3,R6
+	jmpz skip_iPB_DOWN_handle
+		;;Move left player down
+		sub R0,R0,R0
+		ld R0,R0		;;R0 = 8
+		dec R0,R0		;;R0 = 7
+		inc R1,R1		;;
+		sub R0,R0,R1
+		jmpns skip_iPB_DOWN_handle_position_reset
+			dec R1,R1
+		skip_iPB_DOWN_handle_position_reset:
+		jmp skip_iPB_LEFT_handle				;;If both buttons are pressed we should only handle one input at a time
+	skip_iPB_DOWN_handle:
+	
+	inc R6,R6
+	ld R3,R6
+	jmpz skip_iPB_LEFT_handle
+		;;Move left player up
+		dec R1,R1
+		jmpns skip_iPB_LEFT_handle_position_reset
+			inc R1,R1
+		skip_iPB_LEFT_handle_position_reset:
+	skip_iPB_LEFT_handle:
+
+	
+	
+	;;Write the positions back to RAM
+	;;R1 = left_player.y
+	;;R2 = right_player.y
+	sub R0,R0,R0
+	ld R0,R0		;;R0 = 8
+	inc R0,R0
+	inc R0,R0
+	inc R0,R0		;;R0 = &left_player.y = 11
 	st R1,R0		
-	;;Repeat this 2 more times since the length of the players is 3
 	inc R0,R0
-	inc R0,R0
-	inc R1,R1
-	st R1,R0
-	inc R0,R0
-	inc R0,R0
-	inc R1,R1
-	st R1,R0
-	;; The position of the left player is now stored
-	
-	;;Now do the same for the right player
-	inc R0,R0
-	inc R0,R0		;;R0 = 17 = &right_player.y
+	inc R0,R0		;;R0 = &right_player.y = 13
 	st R2,R0
-	;;repeat 2 times
-	inc R0,R0
-	inc R0,R0
-	inc R2,R2
-	st R2,R0
-	inc R0,R0
-	inc R0,R0
-	inc R2,R2
-	st R2,R0
-	;; The position of the right player is now stored
 	
+	;;Reset R6 
+	shr R0,R0		;;R0 = 6
+	dec R0,R0
+	ld R6,R0		;; R6 = 0x200 = pb_dec
 	
+
 ;; loop indefinetely
 jmp frame_sync_rising_edge
-
 
 LEFT_PLAYER_LOST:
 RIGHT_PLAYER_LOST:
