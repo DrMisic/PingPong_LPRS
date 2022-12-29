@@ -1,0 +1,535 @@
+.data
+8			
+0			
+18			//75 = no delay; 18 = 4 delay cycles
+0x100
+0x140
+0x200
+1
+0					
+3
+3 		
+0
+3 
+7
+3
+-1		
+-1
+0		//16
+0
+
+.text
+
+/*
+	Spisak registara:
+	R0 - tmp register
+	R1 - tmp chunk x
+	R2 - tmp chunk y
+	R3 - color
+	R4 - p_food_and_snake
+	R5 - p_pb_dec
+	R6 - p_frame_sync
+	R7 - p_rgb_matrix
+*/
+
+
+
+begin:
+	;; Setup pointers and color.
+	inc R0, R0                  ;; addr = 1
+	inc R0, R0                  ;; addr = 2
+	inc R0, R0                  ;; addr = 3
+	ld R7, R0                   ;; R7 <- p_rgb_matrix
+	inc R0, R0                  ;; addr = 4
+	ld R6, R0                   ;; R6 <- p_frame_sync
+	inc R0, R0                  ;; addr = 5
+	ld R5, R0                   ;; R5 <- p_pb_dec
+	inc R3, R3                  ;; color = RED
+
+frame_sync_rising_edge:
+frame_sync_wait_0:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpnz frame_sync_wait_0
+frame_sync_wait_1:
+	ld R0, R6                   ;; R0 <- p_frame_sync
+	jmpz frame_sync_wait_1
+
+
+draw_ball:
+	sub R3,R3,R3
+	inc R3,R3 		;; Boja = RED
+	sub R0,R0,R0		;; R0 = 0
+	ld R0,R0		;; R0 = 8 = &(ball.x)
+	ld R1,R0 		;; R1 = ball.x
+	inc R0,R0 		
+	ld R2, R0		;; R2 = ball.y
+	shl R2,R2
+	shl R2,R2
+	shl R2,R2
+	add R2,R1,R2	
+	add R2,R2,R7		;;R2 = (R2*8) + x + 256
+	st R3,R2		;;store color in "256 + (y*8) +x"
+	
+	sub R0,R0,R0
+	ld R0,R0		;;R0 = 8
+	shl R3,R3		;;R3 = 2
+	sub R4,R4,R4
+	ld R4,R4
+	inc R4,R4		;; R4 = &(ball.y)
+	
+draw_players:
+	inc R4,R4		;; R4 = &(left_player.x)
+	ld R1,R4
+	jmps draw_end
+	inc R4,R4		;; R4 = &(left_player.y)
+	ld R2,R4		;; R1 = left_player.x  R2 = left_player.y
+	shl R2,R2
+	shl R2,R2
+	shl R2,R2		
+	add R2,R2,R1	
+	add R2,R2,R7	;; R2 = (R2*8) + x + 256 (draw 1st tile)
+	st R3,R2		
+	add R2,R2,R0	;;draw 2nd tile
+	st R3,R2		
+	add R2,R2,R0	;;draw 3rd tile
+	st R3,R2		
+	jmp draw_players
+draw_end:
+
+count_frames_begin:
+	sub R0, R0, R0              ;; addr = 0
+	inc R0, R0
+	ld R1, R0                   ;; R1 <- frame_cnt
+	inc R0, R0
+	ld R2, R0                   ;; R2 <- frames_per_heartbeat
+	dec R0, R0
+	inc R1, R1                  ;; frame_cnt++;
+	sub R2, R2, R1              ;; frame_cnt == frames_per_heartbeat
+	jmpz count_frames_heatbeat  ;; Jump if equal.
+	st R1, R0                   ;; R1 -> frame_cnt
+	jmp frame_sync_rising_edge
+count_frames_heatbeat:
+	sub R1, R1, R1
+	st R1, R0                   ;; R1 i.e. 0 -> frame_cnt
+count_frames_end:
+
+
+
+collision_detection:
+
+
+
+
+
+
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	check_wall_collision:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		
+	sub R0,R0,R0
+	ld R0,R0			;;R0 = 8
+	dec R0,R0			
+	dec R0,R0			;;R0 = 6
+	
+	ld R3,R0
+	inc R0,R0
+	ld R4,R0
+	inc R0,R0
+	ld R1,R0
+	inc R0,R0
+	ld R2,R0			;;R0 = 9, R1 and R2 = ball.x and y, R3 and R4 = ball_move_vect.x and y
+	
+	add R1,R1,R3		;;R1 = new ball.x 
+	add R2,R2,R4		;;R2 = new ball.y
+	
+	jmpns check_wall_collision_reset_ball_y_top_collision
+		;;new ball.y < 0
+		sub R2,R2,R2
+		
+		;;Store ball_move_vect.y
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = 7 = &ball_move_vect.y
+		sub R3,R3,R3	
+		inc R3,R3		;;R3 = 1
+		st R3,R0		;;ball_move_vect.y = 1
+		jmp check_wall_collision_reset_ball_y_end
+	check_wall_collision_reset_ball_y_top_collision:
+	sub R0,R0,R0
+	inc R0,R0
+	shl R0,R0
+	shl R0,R0
+	shl R0,R0
+	dec R0,R0			;;R0 = 7
+	sub R0,R0,R2
+	jmpns check_wall_collision_reset_ball_y_bottom_collision
+		;;new ball.y > 7
+		sub R2,R2,R2
+		inc R2,R2
+		shl R2,R2
+		shl R2,R2
+		shl R2,R2
+		dec R2,R2		;;R2 = 7
+		
+		;;Store ball_move_vect.y
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = 7 = &ball_move_vect.y
+		sub R3,R3,R3	
+		dec R3,R3		;;R3 = -1
+		st R3,R0		;;ball_move_vect.y = -1
+		jmp check_wall_collision_reset_ball_y_end
+	check_wall_collision_reset_ball_y_bottom_collision:
+	
+	check_wall_collision_reset_ball_y_end:
+	
+	
+	
+	
+	
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	check_wall_collision_end:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+left_player_collision_detection:
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	sub R0,R0,R0
+	ld R0,R0
+	dec R0,R0
+	dec R0,R0		;;R0=6
+	ld R3,R0
+	inc R0,R0
+	ld R4,R0
+	inc R0,R0		;;R0 = 8
+	ld R1,R0
+	inc R0,R0
+	ld R2,R0
+	;;R1 = ball.x R2 = ball.y R3 = ball_move.x R4 = ball_move.y
+
+	add R1,R1,R3
+	add R2,R2,R4
+	;;R1 = new ball.x R2 = new ball.y
+	
+	sub R0,R0,R0
+	ld R0,R0		
+	inc R0,R0
+	inc R0,R0	;;R0 = &left_p.x = 10
+	ld R3,R0
+	inc R0,R0
+	ld R4,R0
+	;;R3 = xpoz R4 =ypoz of left_p
+
+	sub R3,R3,R1		;;new ball.x != left.x
+	jmpnz skip_left_player_collision_detection
+	
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y
+	jmpnz skip_left_player_first_tile_hit
+		;;set ball_move =(1,-1)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		dec R3,R3		;;R3 =-1
+		st R3,R0		
+		inc R3,R3
+		inc R3,R3		;;R3 = 1
+		dec R0,R0		;;R0 = &ball_move.x
+		st R3,R0
+		jmp collision_detection_end
+	skip_left_player_first_tile_hit:
+
+	inc R4,R4
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y-1
+	jmpnz skip_left_player_second_tile_hit
+		;;set ball_move =(1,0)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		st R3,R0
+		inc R3,R3		;;R3 = 1
+		dec R0,R0		;;R0 = &ball_move.x
+		st R3,R0		
+		jmp collision_detection_end
+	skip_left_player_second_tile_hit:
+
+	inc R4,R4
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y-1
+	jmpnz skip_left_player_third_tile_hit
+		;;set ball_move =(1,1)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		inc R3,R3		;;R3 = 1
+		st R3,R0
+		dec R0,R0		;;R0 = &ball_move.x
+		st R3,R0
+		jmp collision_detection_end
+	skip_left_player_third_tile_hit:
+	
+	;;Left player lost
+	jmp end_game
+
+
+skip_left_player_collision_detection:
+
+
+
+right_player_collision_detection:
+	sub R0,R0,R0
+	ld R0,R0
+	dec R0,R0
+	dec R0,R0		;;R0=6
+	ld R3,R0
+	inc R0,R0
+	ld R4,R0
+	inc R0,R0		;;R0 = 8
+	ld R1,R0
+	inc R0,R0
+	ld R2,R0
+	;;R1 = ball.x R2 = ball.y R3 = ball_move.x R4 = ball_move.y
+
+	add R1,R1,R3
+	add R2,R2,R4
+	;;R1 = new ball.x R2 = new ball.y
+	
+	sub R0,R0,R0
+	ld R0,R0		
+	inc R0,R0
+	inc R0,R0	
+	inc R0,R0
+	inc R0,R0		;;R0 = &right_p.x = 12
+	ld R3,R0
+	inc R0,R0
+	ld R4,R0
+	;;R3 = xpoz R4 =ypoz of right_p
+
+	sub R3,R3,R1		;;new ball.x != left.x
+	jmpnz skip_right_player_collision_detection
+	
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y
+	jmpnz skip_right_player_first_tile_hit
+		;;set ball_move =(-1,-1)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		dec R3,R3		;;R3 =-1
+		st R3,R0		
+		dec R0,R0		;;R0 = &ball_move.x
+		st R3,R0		
+		jmp collision_detection_end
+	skip_right_player_first_tile_hit:
+
+	inc R4,R4
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y-1
+	jmpnz skip_right_player_second_tile_hit
+		;;set ball_move =(-1,0)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		st R3,R0
+		dec R3,R3		;;R3 = -1
+		dec R0,R0		;;R0 = &ball_move.x
+		st R3,R0		
+		jmp collision_detection_end
+	skip_right_player_second_tile_hit:
+
+	inc R4,R4
+	sub R3,R4,R2		;;R3 = left_p.y - new ball.y-1
+	jmpnz skip_right_player_third_tile_hit
+		;;set ball_move =(-1,1)
+		sub R0,R0,R0
+		ld R0,R0
+		dec R0,R0		;;R0 = &ball_move.y
+		sub R3,R3,R3		
+		inc R3,R3		;;R3 = 1
+		st R3,R0
+		dec R0,R0		;;R0 = &ball_move.x
+		sub R3,R3,R3
+		dec R3,R3		;;R3 = -1
+		st R3,R0		
+		jmp collision_detection_end
+	skip_right_player_third_tile_hit:
+
+	;;Left right lost
+	jmp end_game
+
+skip_right_player_collision_detection:
+
+
+
+
+
+	
+collision_detection_end:
+
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+			update_ball_position:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;NOTE: new ball.x = R1 and new ball.y = R2 (could be out of bounds so we read from the RAM where we wrote the changes)
+
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	;;TESTING: MAKE THE PLAYERS MOVE 2 times faster than the ball
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+	sub R0,R0,R0
+	ld R0,R0			;;R0 = 8
+	shl R0,R0			;;R0 = 16 = &ball_move_delay
+	ld R0,R0			;;R0 = ball_move_delay
+	sub R1,R1,R1
+	inc R1,R1
+	shl R1,R1
+	shl R1,R1			;;R1 = 4
+	sub R0,R0,R1		;;R0 = ball_move_delay - 4
+	jmpz skip_ball_movement_delay
+		;;else we increase it,store it and skip it
+		sub R1,R1,R1
+		sub R0,R0,R0
+		ld R0,R0
+		shl R0,R0			;;R0 = 16 
+		ld R1,R0
+		inc R1,R1
+		st R1,R0			;;ball_move_delay += 1
+		jmp update_ball_position_end
+	skip_ball_movement_delay:
+	
+	;;Reset the ball movement delay
+	sub R0,R0,R0
+	ld R0,R0
+	shl R0,R0			;;R0 = 16 = &ball_move_delay
+	sub R1,R1,R1		
+	st R1,R0			;;ball_move_delay 0;
+	
+	
+	sub R0,R0,R0
+	ld R0,R0
+	ld R1,R0			
+	inc R0,R0
+	ld R2,R0			;;R1 = ball.x    R2 = ball.y
+	sub R0,R0,R0
+	ld R0,R0
+	dec R0,R0
+	ld R4,R0
+	dec R0,R0
+	ld R3,R0			;;R3 = ball_move.x    R4 = ball_move.y
+	add R1,R1,R3
+	add R2,R2,R4
+
+
+	sub R0,R0,R0
+	ld R0,R0
+	st R1,R0
+	inc R0,R0
+	st R2,R0
+	
+	
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	update_ball_position_end:
+	;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+handle_input:
+	ld R1,R5
+	inc R5,R5
+	ld R2,R5
+	dec R5,R5
+	;; R1 = left_p change   R2 = right_p change
+	
+	sub R0,R0,R0
+	ld R0,R0		
+	inc R0,R0
+	inc R0,R0
+	inc R0,R0		;;R0 = 11
+	ld R3,R0
+	inc R0,R0
+	inc R0,R0
+	ld R4,R0
+	;;R3 = left_p.y    R4 = right_p.y
+
+	add R1,R1,R3		;;R1 = new left_p.y
+	jmpns skip_left_p_top_collision
+		sub R1,R1,R1	;;R1 = 0
+		jmp handle_input_left_p_end
+	skip_left_p_top_collision:
+	sub R0,R0,R0
+	inc R0,R0
+	shl R0,R0
+	shl R0,R0
+	inc R0,R0		;;R0 = 5
+	sub R0,R0,R1
+	jmpns skip_left_p_bottom_collision
+		sub R1,R1,R1
+		inc R1,R1
+		shl R1,R1
+		shl R1,R1
+		inc R1,R1		;;R1 = 5
+	skip_left_p_bottom_collision:
+	
+	handle_input_left_p_end:
+
+	add R2,R2,R4		;;R2 = new right_p.y
+	jmpns skip_right_p_top_collision
+		sub R2,R2,R2	;;R2 = 0
+		jmp handle_input_right_p_end
+	skip_right_p_top_collision:
+	sub R0,R0,R0
+	inc R0,R0
+	shl R0,R0
+	shl R0,R0
+	inc R0,R0		;;R0 = 5
+	sub R0,R0,R2
+	jmpns skip_right_p_bottom_collision
+		sub R2,R2,R2
+		inc R2,R2
+		shl R2,R2
+		shl R2,R2
+		inc R2,R2		;;R2 = 5
+	skip_right_p_bottom_collision:
+	handle_input_right_p_end:
+
+	;;store result
+	sub R0,R0,R0
+	ld R0,R0
+	inc R0,R0
+	inc R0,R0		
+	inc R0,R0		;;R0 = &left_p.y = 11
+	st R1,R0
+	inc R0,R0
+	inc R0,R0
+	st R2,R0
+
+handle_input_end:	
+
+
+
+jmp frame_sync_rising_edge
+
+end_game:
+	sub R0,R0,R0
+	
+
